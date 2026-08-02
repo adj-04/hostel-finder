@@ -4,7 +4,7 @@ from models import hostels_collection, users_collection, reviews_collection, boo
 from utils.generate_hostels import generate_hostels
 from utils.scrapers import scrape_99acres_chennai_pg
 from utils.geocode import geocode_address
-from bson.objectid import ObjectId
+from auth import issue_token, require_role, get_current_user
 import traceback
 import time
 import json
@@ -24,7 +24,7 @@ except ImportError:  # pragma: no cover - very unlikely in a Flask app
 app = Flask(__name__)
 CORS(app)
 
-# -------------------- REAL-TIME (SSE) STATE --------------------
+# Real-time state (server-sent events)
 # A simple monotonically increasing version counter. Any write endpoint that
 # changes hostel/review data bumps this; the /stream_hostels SSE endpoint
 # pushes the new version to connected clients so the UI can refresh live
@@ -37,7 +37,7 @@ def bump_data_version():
         _data_version["v"] += 1
         _data_version["ts"] = time.time()
 
-# -------------------- DATABASE INIT --------------------
+# Database init
 if hostels_collection.count_documents({}) == 0:
     try:
         scrape_99acres_chennai_pg()
@@ -48,7 +48,7 @@ if hostels_collection.count_documents({}) == 0:
     except Exception:
         traceback.print_exc()
 
-# -------------------- SERIALIZATION HELPERS --------------------
+# Serialization helpers
 def serialize_hostel(h):
     h = dict(h)
     h["_id"] = str(h.get("_id"))
@@ -70,8 +70,9 @@ def serialize_review(r):
     r["_id"] = str(r.get("_id"))
     return r
 
-# -------------------- ROUTES --------------------
+# Routes
 @app.route("/get_all_reviews", methods=["GET"])
+@require_role("admin")
 def get_all_reviews():
     try:
         reviews = list(reviews_collection.find({}))
@@ -83,6 +84,7 @@ def get_all_reviews():
         return jsonify({"error": "Server error fetching reviews"}), 500
 
 @app.route("/get_all_hostels", methods=["GET"])
+@require_role("admin")
 def get_all_hostels():
     try:
         hostels = list(hostels_collection.find({}))
@@ -93,6 +95,7 @@ def get_all_hostels():
 
 
 @app.route("/admin_stats", methods=["GET"])
+@require_role("admin")
 def admin_stats():
     """Aggregate admin statistics for dashboard widgets."""
     try:
@@ -179,11 +182,7 @@ def get_hostels():
 @app.route("/get_hostel/<hostel_id>", methods=["GET"])
 def get_single_hostel(hostel_id):
     try:
-        # Try ObjectId, fall back to string
-        query = {"_id": ObjectId(hostel_id)}
-        h = hostels_collection.find_one(query)
-        if not h:
-            h = hostels_collection.find_one({"_id": str(hostel_id)})
+        h = hostels_collection.find_one({"_id": str(hostel_id)})
         if not h:
             return jsonify({"error": "Not found"}), 404
         return jsonify(serialize_hostel(h))
@@ -209,7 +208,7 @@ def add_review():
             "status": "pending",
         }
         reviews_collection.insert_one(review)
-        return jsonify({"success": True, "message": "Review added successfully!", "user": user})
+        return jsonify({"success": True, "message": "Review added", "user": user})
     except Exception:
         traceback.print_exc()
         return jsonify({"success": False, "message": "Server error adding review"}), 500
@@ -280,7 +279,7 @@ def add_hostel():
         }
         result = hostels_collection.insert_one(hostel)
         bump_data_version()
-        return jsonify({"success": True, "message": "Hostel added successfully!", "id": str(result.inserted_id)})
+        return jsonify({"success": True, "message": "Hostel added", "id": str(result.inserted_id)})
     except Exception:
         traceback.print_exc()
         return jsonify({"success": False, "message": "Server error adding hostel"}), 500
@@ -295,16 +294,10 @@ def owner_hostels(owner_id):
         return jsonify({"error": "Server error fetching owner hostels"}), 500
 
 @app.route("/verify_hostel/<hostel_id>", methods=["POST"])
+@require_role("admin")
 def verify_hostel(hostel_id):
     try:
-        # Try ObjectId, fallback to string id
-        try:
-            res = hostels_collection.update_one({"_id": ObjectId(hostel_id)}, {"$set": {"verified": True}})
-            modified = getattr(res, 'modified_count', 0)
-        except Exception:
-            modified = 0
-        if not modified:
-            res = hostels_collection.update_one({"_id": str(hostel_id)}, {"$set": {"verified": True}})
+        hostels_collection.update_one({"_id": str(hostel_id)}, {"$set": {"verified": True}})
         bump_data_version()
         return jsonify({"success": True})
     except Exception:
@@ -312,12 +305,10 @@ def verify_hostel(hostel_id):
         return jsonify({"success": False, "message": "Server error verifying hostel"}), 500
 
 @app.route("/delete_hostel/<hostel_id>", methods=["DELETE"])
+@require_role("admin")
 def delete_hostel(hostel_id):
     try:
-        try:
-            hostels_collection.delete_one({"_id": ObjectId(hostel_id)})
-        except Exception:
-            hostels_collection.delete_one({"_id": str(hostel_id)})
+        hostels_collection.delete_one({"_id": str(hostel_id)})
         bump_data_version()
         return jsonify({"success": True})
     except Exception:
@@ -326,16 +317,10 @@ def delete_hostel(hostel_id):
 
 
 @app.route("/approve_review/<review_id>", methods=["POST"])
+@require_role("admin")
 def approve_review(review_id):
     try:
-        modified = 0
-        try:
-            res = reviews_collection.update_one({"_id": ObjectId(review_id)}, {"$set": {"status": "approved"}})
-            modified = getattr(res, "modified_count", 0)
-        except Exception:
-            modified = 0
-        if not modified:
-            reviews_collection.update_one({"_id": str(review_id)}, {"$set": {"status": "approved"}})
+        reviews_collection.update_one({"_id": str(review_id)}, {"$set": {"status": "approved"}})
         return jsonify({"success": True})
     except Exception:
         traceback.print_exc()
@@ -343,17 +328,11 @@ def approve_review(review_id):
 
 
 @app.route("/delete_review/<review_id>", methods=["DELETE"])
+@require_role("admin")
 def delete_review(review_id):
     try:
         # Soft delete: mark as deleted so it no longer appears in lists
-        modified = 0
-        try:
-            res = reviews_collection.update_one({"_id": ObjectId(review_id)}, {"$set": {"status": "deleted"}})
-            modified = getattr(res, "modified_count", 0)
-        except Exception:
-            modified = 0
-        if not modified:
-            reviews_collection.update_one({"_id": str(review_id)}, {"$set": {"status": "deleted"}})
+        reviews_collection.update_one({"_id": str(review_id)}, {"$set": {"status": "deleted"}})
         return jsonify({"success": True})
     except Exception:
         traceback.print_exc()
@@ -391,7 +370,7 @@ def register():
             }
 
         result = users_collection.insert_one(user_doc)
-        return jsonify({"success": True, "message": "User registered successfully!", "user_id": str(result.inserted_id)})
+        return jsonify({"success": True, "message": "User registered", "user_id": str(result.inserted_id)})
     except Exception:
         traceback.print_exc()
         return jsonify({"error": "Server error registering user"}), 500
@@ -426,9 +405,11 @@ def login():
         if not is_valid:
             return jsonify({"error": "Invalid credentials"}), 400
 
+        token = issue_token(user)
         return jsonify({
             "success": True,
-            "message": "Login successful!",
+            "message": "Login successful",
+            "token": token,
             "user": {
                 "name": user.get("name"),
                 "email": user.get("email"),
@@ -440,16 +421,24 @@ def login():
         traceback.print_exc()
         return jsonify({"error": "Server error during login"}), 500
 
-@app.route("/clear_sample_data", methods=["POST"])
-def clear_sample_data():
-    """Admin action: delete every listing that wasn't actually submitted by
-    a real owner through the app (i.e. everything with data_source !=
-    'owner_submitted' — both the generated sample listings and the seeded
-    real-operator entries). Use this once you have enough genuine owner
-    listings and want the dataset to be unambiguously 100% real.
+@app.route("/whoami", methods=["GET"])
+def whoami():
+    """Lets the frontend check whether the token it has is still valid
+    (and for which role) before rendering a protected page."""
+    payload = get_current_user()
+    if payload is None:
+        return jsonify({"authenticated": False}), 401
+    return jsonify({"authenticated": True, "role": payload.get("role"), "email": payload.get("email")})
 
-    This has no auth check, same as the other admin_* endpoints in this
-    demo — add real admin authentication before deploying this publicly.
+
+@app.route("/clear_sample_data", methods=["POST"])
+@require_role("admin")
+def clear_sample_data():
+    """Admin action: delete every listing that wasn't submitted by a real
+    owner through the app (i.e. anything with data_source != 'owner_submitted'
+    — both the generated sample listings and the seeded starter entries).
+    Use this once there are enough genuine owner listings and the dataset
+    should be unambiguously real.
     """
     try:
         all_docs = list(hostels_collection.find({}))
@@ -459,10 +448,7 @@ def clear_sample_data():
         ]
         deleted = 0
         for h in to_delete:
-            try:
-                hostels_collection.delete_one({"_id": ObjectId(h["_id"])})
-            except Exception:
-                hostels_collection.delete_one({"_id": str(h["_id"])})
+            hostels_collection.delete_one({"_id": str(h["_id"])})
             deleted += 1
         bump_data_version()
         return jsonify({"success": True, "deleted": deleted})
@@ -588,6 +574,6 @@ def get_bookings(user_id):
         return jsonify({"error": "Server error fetching bookings"}), 500
 
 
-# -------------------- MAIN --------------------
+# Entry point
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)

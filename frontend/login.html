@@ -57,6 +57,7 @@
 
         if (data.success) {
           localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('token', data.token);
           toastSuccess('Welcome back!', 1200);
           switch (data.user.role) {
             case 'student': window.location.href = "student_home.html"; break;

@@ -88,13 +88,45 @@
       return u ? JSON.parse(u) : null;
     }
 
+    function authHeaders() {
+      const token = localStorage.getItem("token");
+      return token ? { "Authorization": `Bearer ${token}` } : {};
+    }
+
+    // A token in localStorage only proves someone has *a* token, not that
+    // it's still valid or actually belongs to an admin — the server is
+    // the source of truth. This page will not load any admin data until
+    // /whoami confirms the token checks out server-side.
+    async function requireAdminOrRedirect() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        window.location.href = "login.html";
+        return false;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/whoami`, { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok || !data.authenticated || data.role !== "admin") {
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          window.location.href = "login.html";
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error("Could not verify admin session:", err);
+        window.location.href = "login.html";
+        return false;
+      }
+    }
+
     // ----------------- FETCH REVIEWS -----------------
     async function fetchAdminReviews() {
       const adminReviewList = document.getElementById("adminReviewList");
       if (!adminReviewList) return;
 
       try {
-        const res = await fetch(`${API_BASE}/get_all_reviews`);
+        const res = await fetch(`${API_BASE}/get_all_reviews`, { headers: authHeaders() });
         const reviews = await res.json();
 
         adminReviewList.innerHTML = "";
@@ -137,10 +169,6 @@
       }
     }
 
-    // ----------------- AUTO REFRESH -----------------
-    fetchAdminReviews();
-    setInterval(fetchAdminReviews, 5000);
-
     // Keep review filter live
     const reviewFilterInput = document.getElementById("adminReviewFilter");
     reviewFilterInput?.addEventListener("input", () => {
@@ -153,7 +181,7 @@
       if (!table) return;
 
       try {
-        const res = await fetch(`${API_BASE}/get_all_hostels`);
+        const res = await fetch(`${API_BASE}/get_all_hostels`, { headers: authHeaders() });
         const hostels = await res.json();
 
         table.innerHTML = "";
@@ -199,7 +227,7 @@
       if (!totalHostelsEl || !totalStudentsEl || !pendingHostelsEl) return;
 
       try {
-        const res = await fetch(`${API_BASE}/admin_stats`);
+        const res = await fetch(`${API_BASE}/admin_stats`, { headers: authHeaders() });
         const stats = await res.json();
 
         if (stats && !stats.error) {
@@ -215,7 +243,7 @@
     // ----------------- HOSTEL ACTIONS -----------------
     async function verifyHostel(hostelId) {
       try {
-        const res = await fetch(`${API_BASE}/verify_hostel/${hostelId}`, { method: "POST" });
+        const res = await fetch(`${API_BASE}/verify_hostel/${hostelId}`, { method: "POST", headers: authHeaders() });
         const result = await res.json();
         if (result.success) {
           toastSuccess("Hostel verified!");
@@ -231,7 +259,7 @@
 
     async function deleteHostel(hostelId) {
       try {
-        const res = await fetch(`${API_BASE}/delete_hostel/${hostelId}`, { method: "DELETE" });
+        const res = await fetch(`${API_BASE}/delete_hostel/${hostelId}`, { method: "DELETE", headers: authHeaders() });
         const result = await res.json();
         if (result.success) {
           toastSuccess("Hostel deleted!");
@@ -248,7 +276,7 @@
     // ----------------- REVIEW ACTIONS -----------------
     async function approveReview(reviewId) {
       try {
-        const res = await fetch(`${API_BASE}/approve_review/${reviewId}`, { method: "POST" });
+        const res = await fetch(`${API_BASE}/approve_review/${reviewId}`, { method: "POST", headers: authHeaders() });
         const result = await res.json();
         if (result.success) {
           fetchAdminReviews();
@@ -264,7 +292,7 @@
 
     async function deleteReview(reviewId) {
       try {
-        const res = await fetch(`${API_BASE}/delete_review/${reviewId}`, { method: "DELETE" });
+        const res = await fetch(`${API_BASE}/delete_review/${reviewId}`, { method: "DELETE", headers: authHeaders() });
         const result = await res.json();
         if (result.success) {
           fetchAdminReviews();
@@ -282,7 +310,7 @@
     document.getElementById("clearSampleBtn")?.addEventListener("click", async () => {
       if (!confirm("Delete every sample/seed listing (not owner-submitted ones)? This can't be undone.")) return;
       try {
-        const res = await fetch(`${API_BASE}/clear_sample_data`, { method: "POST" });
+        const res = await fetch(`${API_BASE}/clear_sample_data`, { method: "POST", headers: authHeaders() });
         const result = await res.json();
         if (result.success) {
           toastSuccess(`Cleared ${result.deleted} sample listing${result.deleted === 1 ? "" : "s"}.`);
@@ -298,13 +326,18 @@
     });
 
     // ----------------- INITIAL LOAD -----------------
-    fetchAdminHostels();
-    fetchAdminReviews();
-    fetchAdminStats();
+    (async () => {
+      const ok = await requireAdminOrRedirect();
+      if (!ok) return;
 
-    setInterval(fetchAdminHostels, 5000);
-    setInterval(fetchAdminReviews, 5000);
-    setInterval(fetchAdminStats, 10000);
+      fetchAdminHostels();
+      fetchAdminReviews();
+      fetchAdminStats();
+
+      setInterval(fetchAdminHostels, 5000);
+      setInterval(fetchAdminReviews, 5000);
+      setInterval(fetchAdminStats, 10000);
+    })();
   </script>
   <script src="script.js"></script>
 </body>

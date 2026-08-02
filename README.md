@@ -1,71 +1,51 @@
 # Chennai Hostel Finder
 
-A full‑stack app to browse, review, book, and manage hostels in Chennai. It includes three roles:
-- **Students**: search hostels (live, as-you-type, with a "near me" distance sort), view details on a map, post reviews, and reserve a bed through a secure checkout flow
-- **Owners**: list and manage "My Hostels"
-- **Admins**: monitor hostels and reviews, verify/delete listings, live dashboard
+A full-stack app for browsing, reviewing, and managing hostels in Chennai. There are three roles:
+
+- **Students** — search hostels (live search, "near me" distance sort), view them on a map, post reviews, and book a bed through a checkout flow
+- **Owners** — list and manage their own hostels
+- **Admins** — review submissions, verify or delete listings, moderate reviews
 
 ## Tech stack
-- **Backend**: Flask + Flask-CORS, MongoDB (with in‑memory fallback if Mongo isn't available), Server-Sent Events for real-time updates
-- **Frontend**: Vanilla HTML/CSS/JS — no build step required. Sleek dark UI (Inter font, warm amber accent), toast notifications, skeleton loaders
+
+- **Backend**: Flask + Flask-CORS, a small JSON-file-backed data store (no external database needed), Server-Sent Events for live updates
+- **Frontend**: plain HTML/CSS/JS, no build step, Leaflet for maps
 
 ## Project structure
+
 - `backend/`
-  - `app.py` — Flask API server (hostels, reviews, auth, bookings, live stream)
-  - `models.py` — Mongo client with a mock in‑memory DB fallback
+  - `app.py` — Flask API (hostels, reviews, auth, bookings, live stream)
+  - `models.py` / `store.py` — the data layer: JSON files on disk instead of MongoDB
+  - `auth.py` — signed-token auth for login and admin-only routes
   - `requirements.txt` — Python dependencies
   - `utils/`
-    - `scrapers.py` — adds sample hostels (placeholder scraper)
-    - `generate_hostels.py` — generates dummy hostels with lat/lng
+    - `scrapers.py` — seeds a handful of real, named PG operators with real published rates
+    - `generate_hostels.py` — generates additional sample listings within real price bands
+    - `geocode.py` — turns an owner-typed address into real coordinates via OpenStreetMap's Nominatim
 - `frontend/`
-  - `*.html`, `style.css` (design system), `script.js` (app logic), `toast.js` (notifications)
+  - `*.html`, `style.css`, `script.js`, `toast.js`
 
-## What's new in this pass
-**Design**
-- Complete visual overhaul: near-black background, warm amber accent, Inter font, rounded corners, soft shadows — replacing the old neon/terminal look
-- Toast notifications instead of `alert()` popups
-- Skeleton loading states while hostel results load
-- Fully responsive on mobile
+## Data model
 
-**Search**
-- Live, debounced search-as-you-type (no need to click "Search" every time)
-- "Near me" button — uses the browser's Geolocation API and sorts real results by distance (haversine formula), with a distance badge per card
-- Location suggestion chips pulled from real data in your database (`/get_locations`)
+Every hostel record has a `data_source` field so the app always knows what's real:
 
-**Real-time data**
-- New `/stream_hostels` Server-Sent Events endpoint — a genuine live channel (not just polling) that notifies the frontend the moment a hostel is added, verified, or deleted, so the "Live" badge and hostel list update in real time
-- "Synced Xs ago" indicator on the student dashboard
+- `owner_submitted` — added by a real owner through the app. Shown with an "Owner listed" badge.
+- `real_operator` — one of the seeded Zolo/Stanza Living entries with their real published pricing. Shown as "Real operator — verify pricing."
+- `generated_sample` — a placeholder listing generated inside a realistic price band. Shown as "Sample listing" so it's never mistaken for a real one.
 
-**Payment**
-- Fully wired checkout flow: card / UPI / net banking, with client-side validation (card length, expiry, CVV, UPI ID format)
-- New `/create_booking` and `/get_bookings/<user_id>` endpoints — bookings are real, persisted records (card numbers are masked, never stored in full)
-- Booking history shown on the payment page with order IDs and a printable receipt
-- Clearly labeled as a **demo/sandbox gateway** — no real money moves, since this project doesn't have live payment processor keys. Swapping in Razorpay/Stripe would mean adding their SDK + your API keys to `create_booking`.
+The admin dashboard has a "Clear sample data" action that removes everything except `owner_submitted` listings, once there are enough real ones to not need the placeholders.
 
-**Listing data**
-- The dummy/random hostel generator has been replaced with a dataset grounded in **real Chennai PG market data**: real locality names and coordinates, and real, currently-published price bands per locality (sourced from Zolo/Stanza Living's own pricing pages, checked Aug 2026) — see `backend/utils/chennai_locality_data.py` for the sourcing notes.
-- `backend/utils/scrapers.py` now seeds a handful of **real, named operators** (Zolo, Stanza Living) with their actual published rates for that locality, instead of fictional placeholder businesses.
-- What's still illustrative: exact per-bed listing names/counts for independent PGs. We don't scrape or redistribute individual small businesses' private listing data (most listing aggregators prohibit this in their ToS, and this sandbox's network can't reach those sites anyway). See `scrape_custom_source()` in `scrapers.py` for a documented starter template if you want to point a real scraper at a specific site *you've* confirmed you're allowed to scrape, run from your own machine.
-- **Always verify current rent/availability directly with a property before paying anything** — this app's prices are realistic ranges, not a live feed.
-
-**Real vs. sample data — solved structurally, not just relabeled**
-Every hostel document now carries a `data_source` field so the app never has to guess what's real:
-- `"owner_submitted"` — an actual owner used Add Hostel. This is 100% real by construction; shown with a green "Owner listed" badge.
-- `"real_operator"` — one of the 6 seeded Zolo/Stanza Living entries with their real published pricing; shown with a "Real operator · verify pricing" badge.
-- `"generated_sample"` — illustrative placeholder generated inside a real price band; shown with a muted "Sample listing" badge so nobody mistakes it for an actual business.
-
-The admin dashboard has a **"Clear sample data"** button (`POST /clear_sample_data`) that deletes everything except `owner_submitted` listings in one click — once real owners have populated the app, you can wipe every placeholder and the dataset becomes unambiguously real.
-
-**Real geocoding for new listings**
-When an owner adds a hostel without lat/lng, `backend/utils/geocode.py` calls OpenStreetMap's free Nominatim API to convert their typed address into real coordinates — no more guessing. If geocoding fails (offline, address not found, etc.) the listing still saves; it's flagged `location_approx: true` instead of showing a fake pin. Note: this specific external call could not be tested from inside this build sandbox (its network egress is locked to a handful of dev domains) — verified it fails safe, but do a live smoke test once you deploy somewhere with normal internet access.
+Prices reflect realistic ranges for the area, not a live feed — always confirm current rent and availability with the property directly before paying anything.
 
 ## Prerequisites
+
 - Python 3.9+
-- (Optional) MongoDB running locally on `mongodb://localhost:27017`
-  - If MongoDB is not available, the backend automatically uses an in‑memory store (data resets on restart)
+
+That's it — no database server to install or run. Data is stored as JSON files under `backend/data/`, created automatically the first time the app runs.
 
 ## Setup
-1) Create/activate a virtual environment and install dependencies:
+
+1. Create a virtual environment and install dependencies:
    ```bash
    cd backend
    python -m venv venv
@@ -74,34 +54,55 @@ When an owner adds a hostel without lat/lng, `backend/utils/geocode.py` calls Op
    pip install -r requirements.txt
    ```
 
-2) Run the backend (threaded, so the live SSE stream doesn't block other requests):
+2. (Recommended) Set a real secret key, used to sign login tokens:
+   ```bash
+   # macOS/Linux
+   export SECRET_KEY="something-long-and-random"
+   # Windows PowerShell
+   $env:SECRET_KEY = "something-long-and-random"
+   ```
+   If you skip this, a hardcoded development key is used, which is fine for local testing but must not be used if you ever deploy this publicly.
+
+3. Run the backend:
    ```bash
    python app.py
    ```
    This starts the server at `http://127.0.0.1:5000`.
 
-3) Open the frontend:
-   - Open `frontend/index.html` directly in your browser (or serve the folder with any static server), then use Login/Register
-   - After login:
-     - role=student → `student_home.html`
-     - role=owner → `owner_home.html` (My Hostels + Add Hostel)
-     - role=admin → `admin_home.html` (reviews + hostels, live-refreshing)
+4. Open the frontend:
+   - Open `frontend/index.html` in your browser (or serve the folder with any static file server), then Login/Register
+   - After login you're redirected by role:
+     - student → `student_home.html`
+     - owner → `owner_home.html` (My Hostels + Add Hostel)
+     - admin → `admin_home.html`
+
+## Auth
+
+`/login` returns a signed token along with the user's info. The frontend stores it and sends it back as `Authorization: Bearer <token>` on requests that need it. Admin-only endpoints (`get_all_hostels`, `get_all_reviews`, `admin_stats`, `verify_hostel`, `delete_hostel`, `approve_review`, `delete_review`, `clear_sample_data`) check that token server-side and reject anything without a valid admin token — visiting `admin_home.html` directly, or editing `localStorage` to claim an admin role, no longer grants any access, since the check happens on the server, not the page.
+
+Tokens expire after 12 hours. `/whoami` lets a page confirm a stored token is still valid before it renders.
 
 ## Key API endpoints
+
 - `GET/POST /get_hostels` — list hostels (search/price/features)
 - `GET /get_hostel/<id>` — single hostel
-- `POST /add_hostel` — owner adds a hostel (facilities as array)
-- `GET /owner_hostels/<owner>` — owner's own hostels
+- `POST /add_hostel` — owner adds a hostel
+- `GET /owner_hostels/<owner>` — an owner's own hostels
 - `POST /add_review` / `GET /get_reviews/<hostel>` — reviews
-- `GET /get_all_reviews` / `GET /get_all_hostels` — admin feeds
-- `POST /verify_hostel/<id>` / `DELETE /delete_hostel/<id>` — admin actions
+- `POST /login` / `POST /register` — auth
+- `GET /whoami` — check whether the current token is valid, and for which role
+- `GET /get_all_reviews` / `GET /get_all_hostels` / `GET /admin_stats` — admin-only feeds
+- `POST /verify_hostel/<id>` / `DELETE /delete_hostel/<id>` — admin-only actions
+- `POST /approve_review/<id>` / `DELETE /delete_review/<id>` — admin-only actions
 - `GET /get_locations` — distinct localities for search suggestions
-- `GET /stream_hostels` — **Server-Sent Events** live-update channel
-- `POST /create_booking` / `GET /get_bookings/<user_id>` — checkout & booking history
+- `GET /stream_hostels` — Server-Sent Events channel for live updates
+- `POST /create_booking` / `GET /get_bookings/<user_id>` — checkout and booking history
 
-## Known gaps & ideas for next steps
-- Auth: hashed passwords + JWT sessions (currently plaintext demo auth)
-- A real payment processor integration (Razorpay/Stripe) if you want to move real money
-- Image upload support for hostel photos (S3/Cloudinary) — the UI has a file picker but doesn't yet persist the file
+## Known gaps and ideas for next steps
+
+- Owner-only routes (`add_hostel`, `owner_hostels/<owner>`) still trust whatever `owner_id` the client sends, rather than checking it against the logged-in user's token — worth locking down the same way the admin routes now are
+- Passwords are hashed on register/login, but there's no rate limiting on login attempts
+- A real payment processor integration (Razorpay/Stripe) if this needs to move real money — right now bookings are recorded but no money actually moves
+- Image upload support for hostel photos (S3/Cloudinary) — the UI has a file picker but doesn't persist the file yet
 - Pagination for `/get_hostels` once the dataset grows
 - Favorites/shortlist for students

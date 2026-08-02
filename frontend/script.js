@@ -1,8 +1,9 @@
 const API_BASE = "http://127.0.0.1:5000";
 
-// ----------------- USER MANAGEMENT -----------------
+// USER MANAGEMENT
 function logout() {
   localStorage.removeItem("user");
+  localStorage.removeItem("token");
   window.location.href = "login.html";
 }
 
@@ -20,7 +21,7 @@ const notify = window.toast ? window.toast : (msg) => alert(msg);
 const notifyError = window.toastError ? window.toastError : (msg) => alert(msg);
 const notifySuccess = window.toastSuccess ? window.toastSuccess : (msg) => alert(msg);
 
-// ----------------- PRICE SLIDER -----------------
+// PRICE SLIDER
 const priceRange = document.getElementById("priceRange");
 const priceValue = document.getElementById("priceValue");
 if (priceRange && priceValue) {
@@ -29,7 +30,7 @@ if (priceRange && priceValue) {
   });
 }
 
-// ----------------- MAP SETUP -----------------
+// MAP SETUP
 let map;
 let markers = [];
 if (document.getElementById("map")) {
@@ -39,7 +40,7 @@ if (document.getElementById("map")) {
   }).addTo(map);
 }
 
-// ----------------- LOCATION SUGGESTIONS -----------------
+// LOCATION SUGGESTIONS
 async function loadLocationChips() {
   const wrap = document.getElementById("locationChips");
   if (!wrap) return;
@@ -68,7 +69,7 @@ async function loadLocationChips() {
   }
 }
 
-// ----------------- NEAR ME (GEOLOCATION) -----------------
+// NEAR ME (GEOLOCATION)
 let userCoords = null;
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -92,7 +93,7 @@ nearMeBtn?.addEventListener("click", () => {
     // toggle off
     userCoords = null;
     nearMeBtn.classList.remove("active");
-    nearMeBtn.textContent = "📍 Near me";
+    nearMeBtn.textContent = "Near me";
     fetchHostels();
     return;
   }
@@ -101,19 +102,19 @@ nearMeBtn?.addEventListener("click", () => {
     (pos) => {
       userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       nearMeBtn.classList.add("active");
-      nearMeBtn.textContent = "📍 Sorted by distance";
+      nearMeBtn.textContent = "Sorted by distance";
       notifySuccess("Showing hostels sorted by distance from you.");
       fetchHostels();
     },
     () => {
-      nearMeBtn.textContent = "📍 Near me";
+      nearMeBtn.textContent = "Near me";
       notifyError("Couldn't get your location. Check location permissions.");
     },
     { enableHighAccuracy: true, timeout: 8000 }
   );
 });
 
-// ----------------- HOSTELS -----------------
+// HOSTELS
 let currentHostel = null;
 let searchDebounceTimer = null;
 
@@ -254,7 +255,7 @@ if (document.getElementById("hostelList")) {
   loadLocationChips();
 }
 
-// ----------------- LIVE UPDATES (SSE) -----------------
+// LIVE UPDATES (SSE)
 let lastSyncedAt = Date.now();
 function updateLastSynced() {
   lastSyncedAt = Date.now();
@@ -301,7 +302,7 @@ function connectLiveStream() {
 }
 connectLiveStream();
 
-// ----------------- VIEW MORE MODAL -----------------
+// VIEW MORE MODAL
 const viewModal = document.getElementById("viewModal");
 const viewContent = document.getElementById("viewContent");
 const reviewList = document.getElementById("reviewList");
@@ -331,7 +332,7 @@ function closeViewModal() {
   reviewList.innerHTML = "";
 }
 
-// ----------------- REVIEWS -----------------
+// REVIEWS
 function showReviews() {
   if (!currentHostel) return;
   reviewList.innerHTML = "Loading reviews...";
@@ -401,7 +402,7 @@ async function submitReview(e) {
   }
 }
 
-// ----------------- PAYMENT -----------------
+// PAYMENT
 function proceedToPay() {
   if (!currentHostel) return;
   try {
@@ -412,7 +413,7 @@ function proceedToPay() {
   window.location.href = "payment.html";
 }
 
-// ----------------- OWNER DASHBOARD -----------------
+// OWNER DASHBOARD
 const ownerListEl = document.getElementById("ownerHostelList");
 const addHostelForm = document.getElementById("addHostelForm");
 const logoutBtn = document.getElementById("logoutBtn");
