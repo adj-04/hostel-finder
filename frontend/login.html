@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="login-container">
+    <h2>Welcome back</h2>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required autocomplete="email">
+      <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+      <select id="role">
+        <option value="student">Student</option>
+        <option value="owner">Owner</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button type="submit">Log in</button>
+    </form>
+    <p>No account? <a href="register.html">Register here</a></p>
+  </div>
+  <script src="toast.js"></script>
+  <script>
+    const BASE_URL = "http://127.0.0.1:5000";
+    const form = document.getElementById("loginForm");
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.textContent;
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      submitBtn.textContent = loading ? 'Signing in…' : originalBtnText;
+      submitBtn.style.opacity = loading ? '0.7' : '1';
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const role = document.getElementById("role").value;
+
+      try {
+        const res = await fetch(`${BASE_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, role })
+        });
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          toastSuccess('Welcome back!', 1200);
+          switch (data.user.role) {
+            case 'student': window.location.href = "student_home.html"; break;
+            case 'owner': window.location.href = "owner_home.html"; break;
+            case 'admin': window.location.href = "admin_home.html"; break;
+            default: window.location.href = "student_home.html";
+          }
+        } else {
+          toastError(data.error || "Invalid credentials. Please try again.");
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+        toastError("Unable to connect to server. Is the backend running?");
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure Payment | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Chennai Hostel Finder</h1>
+    <nav>
+      <a href="student_home.html">Home</a>
+    </nav>
+  </header>
+
+  <main class="payment-wrap">
+    <div class="payment-header">
+      <h2>🔒 Secure Checkout</h2>
+      <span class="demo-tag">Demo gateway</span>
+    </div>
+    <p class="muted" id="orderId" style="margin:-8px 0 18px;"></p>
+
+    <div class="steps">
+      <div id="s1" class="step step--active">1. Details</div>
+      <div id="s2" class="step">2. Processing</div>
+      <div id="s3" class="step">3. Confirmed</div>
+    </div>
+
+    <div class="summary">
+      <div>
+        <div><strong>Hostel:</strong> <span id="hName">-</span></div>
+        <div><strong>Address:</strong> <span id="hAddr">-</span></div>
+      </div>
+      <div class="amt-badge" id="hAmt">₹0</div>
+    </div>
+
+    <section id="paymentMethods" class="pane">
+      <div class="chips" role="tablist" aria-label="Payment method">
+        <label class="chip chip--active" data-method="card"><input type="radio" name="pm" value="card" checked> 💳 Card</label>
+        <label class="chip" data-method="upi"><input type="radio" name="pm" value="upi"> 🔗 UPI</label>
+        <label class="chip" data-method="netbanking"><input type="radio" name="pm" value="netbanking"> 🏦 Net Banking</label>
+      </div>
+
+      <div id="cardForm" style="margin-top:16px;">
+        <div class="input-label">Cardholder Name</div>
+        <input id="cardName" class="input" type="text" placeholder="Name on card" />
+        <div class="input-label" style="margin-top:10px;">Card Number</div>
+        <input id="cardNumber" class="input" type="text" inputmode="numeric" placeholder="1234 5678 9012 3456" maxlength="19" />
+        <div class="grid-2" style="margin-top:10px;">
+          <div>
+            <div class="input-label">Expiry (MM/YY)</div>
+            <input id="cardExpiry" class="input" type="text" inputmode="numeric" placeholder="MM/YY" maxlength="5" />
+          </div>
+          <div>
+            <div class="input-label">CVV</div>
+            <input id="cardCVV" class="input" type="password" inputmode="numeric" placeholder="CVV" maxlength="4" />
+          </div>
+        </div>
+      </div>
+
+      <div id="upiForm" style="display:none; margin-top:16px;">
+        <div class="input-label">UPI ID</div>
+        <input id="upiId" class="input" type="text" placeholder="name@okbank" />
+      </div>
+
+      <div id="nbForm" style="display:none; margin-top:16px;">
+        <div class="input-label">Select Bank</div>
+        <select id="nbBank" class="input">
+          <option value="">Select bank</option>
+          <option>SBI</option>
+          <option>HDFC</option>
+          <option>ICICI</option>
+          <option>Axis</option>
+          <option>Kotak</option>
+        </select>
+      </div>
+
+      <div id="err" class="danger" style="display:none; margin-top:10px;">Error</div>
+
+      <div class="row actions" style="margin-top:18px;">
+        <button class="btn-secondary" id="btnCancel" type="button">Cancel</button>
+        <button class="btn" id="btnPayNow" type="button">Pay Now</button>
+      </div>
+    </section>
+
+    <div class="gateway" id="gateway" style="display:none;">
+      <p class="muted" id="statusText"><span class="spinner"></span> Connecting to payment gateway...</p>
+      <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn-secondary" id="btnCancel2" type="button">Cancel</button>
+        <button class="btn" id="btnRetry" type="button" style="display:none;">Retry</button>
+      </div>
+    </div>
+
+    <div id="result" class="center" style="display:none; margin-top:18px;"></div>
+
+    <section id="historySection" style="margin-top:34px;">
+      <h3 style="color:var(--text); font-size:1rem; margin-bottom:12px;">Your bookings</h3>
+      <div id="bookingHistory"><p class="muted">Loading booking history…</p></div>
+    </section>
+  </main>
+
+  <script src="toast.js"></script>
+  <script>
+    const API_BASE = "http://127.0.0.1:5000";
+    const notify = window.toastError || alert;
+
+    function getLoggedUser() {
+      const u = localStorage.getItem('user');
+      return u ? JSON.parse(u) : null;
+    }
+    const currentUser = getLoggedUser();
+
+    const raw = localStorage.getItem('payment_hostel');
+    const hostel = raw ? JSON.parse(raw) : null;
+
+    const hName = document.getElementById('hName');
+    const hAddr = document.getElementById('hAddr');
+    const hAmt = document.getElementById('hAmt');
+    const bar = document.getElementById('bar');
+    const statusText = document.getElementById('statusText');
+    const btnCancel = document.getElementById('btnCancel');
+    const btnCancel2 = document.getElementById('btnCancel2');
+    const btnRetry = document.getElementById('btnRetry');
+    const btnPayNow = document.getElementById('btnPayNow');
+    const orderIdEl = document.getElementById('orderId');
+    const result = document.getElementById('result');
+    const gateway = document.getElementById('gateway');
+    const err = document.getElementById('err');
+
+    const pmRadios = document.querySelectorAll('input[name="pm"]');
+    const cardForm = document.getElementById('cardForm');
+    const upiForm = document.getElementById('upiForm');
+    const nbForm = document.getElementById('nbForm');
+
+    const cardName = document.getElementById('cardName');
+    const cardNumber = document.getElementById('cardNumber');
+    const cardExpiry = document.getElementById('cardExpiry');
+    const cardCVV = document.getElementById('cardCVV');
+    const upiId = document.getElementById('upiId');
+    const nbBank = document.getElementById('nbBank');
+
+    function goHome(){ window.location.href = 'student_home.html'; }
+
+    if (!hostel) {
+      notify('No payment context found. Pick a hostel first.');
+      setTimeout(goHome, 1200);
+    } else {
+      hName.textContent = hostel.name || '-';
+      hAddr.textContent = hostel.address || '-';
+      hAmt.textContent = `₹${Number(hostel.price || 0).toLocaleString('en-IN')}`;
+      orderIdEl.textContent = 'Draft order · not yet charged';
+      if (btnPayNow) btnPayNow.textContent = `Pay ₹${Number(hostel.price || 0).toLocaleString('en-IN')}`;
+    }
+
+    function setErr(msg){ err.textContent = msg; err.style.display = msg ? 'block' : 'none'; }
+
+    function refreshActiveChip(){
+      const v = document.querySelector('input[name="pm"]:checked').value;
+      document.querySelectorAll('.chip').forEach(l => {
+        const m = l.getAttribute('data-method');
+        if (m === v) l.classList.add('chip--active'); else l.classList.remove('chip--active');
+      });
+    }
+    pmRadios.forEach(r => r.addEventListener('change', () => {
+      const v = document.querySelector('input[name="pm"]:checked').value;
+      cardForm.style.display = v === 'card' ? 'block' : 'none';
+      upiForm.style.display = v === 'upi' ? 'block' : 'none';
+      nbForm.style.display = v === 'netbanking' ? 'block' : 'none';
+      refreshActiveChip();
+      setErr('');
+    }));
+    refreshActiveChip();
+
+    cardNumber?.addEventListener('input', () => {
+      let v = cardNumber.value.replace(/\D/g, '').slice(0,16);
+      cardNumber.value = v.replace(/(.{4})/g, '$1 ').trim();
+    });
+    cardExpiry?.addEventListener('input', () => {
+      let v = cardExpiry.value.replace(/\D/g,'').slice(0,4);
+      if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
+      cardExpiry.value = v;
+    });
+
+    function validate(){
+      const v = document.querySelector('input[name="pm"]:checked').value;
+      if (v === 'card') {
+        const num = cardNumber.value.replace(/\s/g,'');
+        if (!cardName.value.trim()) return setErr('Enter the name on the card'), false;
+        if (num.length !== 16) return setErr('Enter a valid 16-digit card number'), false;
+        if (!/^\d{2}\/\d{2}$/.test(cardExpiry.value)) return setErr('Enter expiry in MM/YY'), false;
+        const [mm, yy] = cardExpiry.value.split('/').map(x=>parseInt(x,10));
+        if (mm < 1 || mm > 12) return setErr('Invalid expiry month'), false;
+        if (!/^\d{3,4}$/.test(cardCVV.value)) return setErr('Invalid CVV'), false;
+      } else if (v === 'upi') {
+        if (!/^.{3,}@.+$/.test(upiId.value.trim())) return setErr('Enter a valid UPI ID (e.g. name@oksbi)'), false;
+      } else if (v === 'netbanking') {
+        if (!nbBank.value) return setErr('Select your bank'), false;
+      }
+      setErr('');
+      return true;
+    }
+
+    btnCancel.addEventListener('click', () => { if (confirm('Cancel this payment and go back?')) goHome(); });
+    btnCancel2.addEventListener('click', () => { if (confirm('Cancel this payment and go back?')) goHome(); });
+
+    const s1 = document.getElementById('s1');
+    const s2 = document.getElementById('s2');
+    const s3 = document.getElementById('s3');
+    function setStep(n){
+      [s1,s2,s3].forEach((el,i) => {
+        el.classList.remove('step--active','step--done');
+        if (i < n-1) el.classList.add('step--done');
+        else if (i === n-1) el.classList.add('step--active');
+      });
+    }
+
+    btnPayNow.addEventListener('click', () => {
+      if (!validate()) return;
+      gateway.style.display = 'block';
+      result.style.display = 'none';
+      btnRetry.style.display = 'none';
+      setStep(2);
+      startFlow();
+    });
+
+    btnRetry.addEventListener('click', () => startFlow());
+
+    async function persistBooking() {
+      if (!currentUser || !hostel) return null;
+      const method = document.querySelector('input[name="pm"]:checked').value;
+      const payload = {
+        hostel_id: hostel._id,
+        hostel_name: hostel.name,
+        user_id: currentUser.user_id,
+        user_name: currentUser.name,
+        amount: hostel.price,
+        method,
+      };
+      if (method === 'card') payload.card_last4 = cardNumber.value.replace(/\s/g,'').slice(-4);
+      if (method === 'upi') payload.upi_id = upiId.value.trim();
+      if (method === 'netbanking') payload.bank = nbBank.value;
+
+      const res = await fetch(`${API_BASE}/create_booking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      return data.success ? data.booking : null;
+    }
+
+    function startFlow(){
+      statusText.innerHTML = '<span class="spinner"></span> Connecting to payment gateway...';
+      bar.style.width = '10%';
+
+      setTimeout(() => {
+        statusText.innerHTML = '<span class="spinner"></span> Initializing checkout...';
+        bar.style.width = '35%';
+      }, 600);
+
+      setTimeout(() => {
+        statusText.innerHTML = '<span class="spinner"></span> Verifying payment details...';
+        bar.style.width = '60%';
+      }, 1200);
+
+      setTimeout(() => {
+        statusText.innerHTML = '<span class="spinner"></span> Processing payment...';
+        bar.style.width = '85%';
+      }, 1900);
+
+      setTimeout(async () => {
+        try {
+          const booking = await persistBooking();
+          bar.style.width = '100%';
+          statusText.textContent = 'Payment completed.';
+          setStep(3);
+          result.style.display = 'block';
+
+          if (booking) {
+            orderIdEl.textContent = `Order #${booking.order_id}`;
+            result.innerHTML = `
+              <p class="success">Payment Successful!</p>
+              <p>Your booking for <strong>${hostel?.name || 'Hostel'}</strong> is confirmed. A copy of this receipt is saved to your booking history below.</p>
+              <div style="margin-top:12px;" class="row">
+                <a class="btn" href="student_home.html">Back to Home</a>
+                <button class="btn-secondary" type="button" onclick="window.print()">Download Receipt</button>
+              </div>
+            `;
+            loadBookingHistory();
+          } else {
+            result.innerHTML = `
+              <p class="danger">Payment succeeded but we couldn't save the booking record.</p>
+              <p class="muted">Make sure the backend server is running, then check "Your bookings" below.</p>
+              <div style="margin-top:12px;" class="row">
+                <a class="btn" href="student_home.html">Back to Home</a>
+              </div>
+            `;
+          }
+          try { localStorage.removeItem('payment_hostel'); } catch(e){}
+        } catch (e) {
+          console.error(e);
+          bar.style.width = '100%';
+          statusText.textContent = 'Something went wrong.';
+          setStep(2);
+          btnRetry.style.display = 'block';
+        }
+      }, 2800);
+    }
+
+    async function loadBookingHistory() {
+      const wrap = document.getElementById('bookingHistory');
+      if (!wrap) return;
+      if (!currentUser) {
+        wrap.innerHTML = '<p class="muted">Log in to see your booking history.</p>';
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/get_bookings/${currentUser.user_id}`);
+        const bookings = await res.json();
+        if (!bookings.length) {
+          wrap.innerHTML = '<p class="muted">No bookings yet.</p>';
+          return;
+        }
+        wrap.innerHTML = bookings.map(b => `
+          <div class="booking-item">
+            <div>
+              <div class="b-name">${b.hostel_name || 'Hostel'}</div>
+              <div class="b-meta">${b.order_id} · ${b.detail || b.method} · ${new Date(b.created_at).toLocaleString()}</div>
+            </div>
+            <div class="b-amt">₹${Number(b.amount).toLocaleString('en-IN')}</div>
+          </div>
+        `).join('');
+      } catch (e) {
+        wrap.innerHTML = '<p class="muted">Couldn\'t load booking history.</p>';
+      }
+    }
+    loadBookingHistory();
+  </script>
+</body>
+</html>

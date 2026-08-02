@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="student-home">
+  <header>
+    <h1>Chennai Hostel Finder</h1>
+    <nav>
+      <a href="student_home.html" class="active">Home</a>
+      <a href="about.html">About</a>
+      <a href="login.html" onclick="logout()">Logout</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="filters">
+      <h2>Find your ideal hostel</h2>
+      <p class="sub">Search by name, area, or facility — results update as you type.</p>
+
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" id="searchBox" placeholder="Search hostels, e.g. tambaram ac wifi" />
+        </div>
+        <button type="button" class="near-me-btn" id="nearMeBtn">📍 Near me</button>
+      </div>
+
+      <div class="location-chips" id="locationChips"></div>
+
+      <div class="price-filter">
+        <label for="priceRange">Max price</label>
+        <input type="range" id="priceRange" min="2000" max="30000" step="500" value="10000">
+        <span id="priceValue">₹10,000</span>
+      </div>
+      <button id="applyFilters">Search</button>
+    </section>
+
+    <div class="results-bar">
+      <span class="results-count" id="resultsCount">Loading hostels…</span>
+      <span class="live-badge" id="liveBadge"><span class="live-dot"></span> <span id="lastSynced">Live</span></span>
+    </div>
+
+    <section class="map-container">
+      <h2>Map view</h2>
+      <iframe id="mapFrame" class="map-iframe" src="https://www.google.com/maps?q=Chennai%20hostels&output=embed" allowfullscreen loading="lazy"></iframe>
+    </section>
+
+    <section id="hostelList" class="card-container">
+      <p class="hint-text">Use the search or filters above to view available hostels.</p>
+    </section>
+  </main>
+
+  <!-- View More Modal -->
+  <div id="viewModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close" onclick="closeViewModal()">&times;</span>
+      <div id="viewContent"></div>
+      <div id="reviewList" style="margin-top: 15px;"></div>
+    </div>
+  </div>
+
+  <script src="toast.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

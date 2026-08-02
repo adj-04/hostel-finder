@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Dashboard | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Chennai Hostel Finder</h1>
+    <nav>
+      <a href="owner_home.html" class="active">Dashboard</a>
+      <a href="my_hostels.html">My Hostels</a>
+      <a href="about.html">About</a>
+      <a href="#" id="logoutBtn">Logout</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="add-hostel">
+      <h2 style="color:var(--text); font-weight:700; margin-bottom:4px;">Add a new hostel</h2>
+      <p class="muted" style="margin-top:0 0 16px;">Listings go live for students once an admin verifies them.</p>
+      <form id="addHostelForm">
+        <input type="text" id="hostelName" placeholder="Hostel name" required>
+        <input type="text" id="hostelAddress" placeholder="Address" required>
+        <input type="number" id="hostelPrice" placeholder="Monthly rent (₹)" required>
+        <select id="hostelType">
+          <option value="ac">AC</option>
+          <option value="non-ac">Non-AC</option>
+        </select>
+        <div class="file-field">
+          <input type="file" id="hostelImage" class="file-input" accept="image/*">
+          <label for="hostelImage" class="btn btn-secondary file-input-label">Upload photo (optional)</label>
+          <span id="hostelImageName" class="file-name"></span>
+        </div>
+        <textarea id="hostelFacilities" placeholder="Facilities (comma separated, e.g. wifi, ac, food)"></textarea>
+        <button type="submit">Add hostel</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="toast.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

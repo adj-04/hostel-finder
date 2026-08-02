@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Chennai Hostel Finder</h1>
+    <nav>
+      <a href="student_home.html" id="homeLink">Home</a>
+      <a href="about.html" class="active">About</a>
+      <a href="login.html" onclick="logout()">Logout</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="about-hero">
+      <h2>Welcome to Chennai Hostel Finder</h2>
+      <p style="max-width:700px; margin:16px auto 0;">Your trusted platform for finding the perfect hostel accommodation in Chennai. We connect students, professionals, and hostel owners in one seamless ecosystem.</p>
+    </section>
+
+    <section class="about-section">
+      <h2>Our Mission</h2>
+      <p>Chennai Hostel Finder was created to simplify the hostel search process. We understand the challenges of finding safe, affordable, and well-located accommodation. Our platform provides verified listings, real reviews, and powerful search tools to help you make informed decisions quickly.</p>
+    </section>
+
+    <section class="about-section">
+      <h2>Key Features</h2>
+      <ul class="feature-list">
+        <li><strong>Advanced Search</strong> — search by location, price range, and facilities with space-separated keywords for precise results, plus a "Near me" option that sorts by real distance.</li>
+        <li><strong>Verified Listings</strong> — all hostels are verified by our admin team to ensure quality and authenticity.</li>
+        <li><strong>Real Reviews</strong> — read genuine reviews from students who have stayed at these hostels.</li>
+        <li><strong>Interactive Maps</strong> — visualize hostel locations with integrated map views.</li>
+        <li><strong>Secure Checkout</strong> — reserve a bed with a guided, multi-step payment flow and a downloadable receipt.</li>
+        <li><strong>Owner Dashboard</strong> — hostel owners can easily manage their listings and track verification status.</li>
+      </ul>
+    </section>
+
+    <section class="about-section">
+      <h2>How It Works</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number">1</div>
+          <div class="stat-label">Search by location, price, or facilities</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">2</div>
+          <div class="stat-label">Explore details, reviews, and the map</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">3</div>
+          <div class="stat-label">Reserve your bed and check out securely</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="about-section">
+      <h2>For Different Users</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">ST</div>
+          <h3>Students</h3>
+          <p>Discover affordable hostels near your college or workplace. Filter by amenities, read authentic reviews, and find your perfect match.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">OW</div>
+          <h3>Owners</h3>
+          <p>List your hostels easily, manage multiple properties, and track verification status. Reach thousands of potential tenants.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">AD</div>
+          <h3>Admins</h3>
+          <p>Monitor listings, verify hostels, and manage reviews to maintain platform quality and trustworthiness.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="about-section">
+      <h2>Technology Stack</h2>
+      <div class="tech-stack">
+        <div class="tech-item">Flask</div>
+        <div class="tech-item">MongoDB</div>
+        <div class="tech-item">Server-Sent Events</div>
+        <div class="tech-item">JavaScript</div>
+        <div class="tech-item">Leaflet Maps</div>
+        <div class="tech-item">Geolocation API</div>
+      </div>
+    </section>
+
+    <section class="about-section">
+      <h2>Where the listing data comes from</h2>
+      <p>Every listing is tagged with where it came from, so you never have to guess:</p>
+      <ul class="feature-list">
+        <li><strong>Owner listed</strong> — a real owner added this through our Add Hostel form. Fully real.</li>
+        <li><strong>Real operator</strong> — a known Chennai PG operator (Zolo, Stanza Living) seeded with their own currently-published pricing for that area.</li>
+        <li><strong>Sample listing</strong> — an illustrative placeholder used to make the map/search feel populated before enough real owners join, priced within that locality's real market range but not an actual business.</li>
+      </ul>
+      <p>Locality names, map coordinates, and price ranges are grounded in real, currently-published Chennai PG pricing (checked August 2026). New owner-submitted addresses are automatically geocoded to real coordinates. Always confirm current rent and availability directly with a property before paying anything.</p>
+    </section>
+
+    <section class="about-section">
+      <h2>Contact &amp; Support</h2>
+      <p>Have questions or need assistance? Our support team is here to help — whether you're a student looking for accommodation or an owner wanting to list your property.</p>
+      <p style="color:var(--accent-hover); margin-top:16px;"><strong>Built with care for the Chennai community.</strong></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 Chennai Hostel Finder. Made for the Chennai community.</p>
+  </footer>
+
+  <script src="toast.js"></script>
+  <script>
+    function logout() {
+      try { localStorage.removeItem('user'); } catch (e) {}
+      window.location.href = 'login.html';
+    }
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        const homeLink = document.getElementById('homeLink');
+        if (user.role === 'owner') homeLink.href = 'owner_home.html';
+        else if (user.role === 'admin') homeLink.href = 'admin_home.html';
+        else homeLink.href = 'student_home.html';
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>

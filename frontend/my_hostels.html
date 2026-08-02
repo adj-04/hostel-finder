@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Hostels | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Chennai Hostel Finder</h1>
+    <nav>
+      <a href="owner_home.html">Dashboard</a>
+      <a href="my_hostels.html" class="active">My Hostels</a>
+      <a href="about.html">About</a>
+      <a href="login.html" onclick="logout()">Logout</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section>
+      <h2 style="color:var(--text); font-weight:700; margin-bottom:16px;">Your listed hostels</h2>
+      <div id="ownerHostelList" class="card-container"></div>
+    </section>
+  </main>
+
+  <script src="toast.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Chennai Hostel Finder</h1>
+    <nav>
+      <a href="admin_home.html" class="active">Dashboard</a>
+      <a href="about.html">About</a>
+      <a href="login.html" onclick="logout()">Logout</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <div class="results-bar" style="margin-bottom:6px;">
+      <h2 style="color:var(--text); font-weight:700; margin:0;">Admin overview</h2>
+      <span class="live-badge" id="liveBadge"><span class="live-dot"></span> Auto-refreshing</span>
+    </div>
+    <section class="stats">
+      <div class="small-card">Total Hostels<span id="totalHostels">0</span></div>
+      <div class="small-card">Total Users<span id="totalStudents">0</span></div>
+      <div class="small-card">Pending Verifications<span id="pendingHostels">0</span></div>
+    </section>
+
+    <section class="admin-panel" style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <div>
+        <h2 style="margin-bottom:6px;">Sample data</h2>
+        <p class="muted" style="margin:0;">Seeded listings are badged "Sample listing" / "Real operator" for students. Once you have enough genuine owner-submitted hostels, clear the seed data below so every listing is 100% real.</p>
+      </div>
+      <button type="button" class="btn-secondary" id="clearSampleBtn">Clear sample data</button>
+    </section>
+
+    <div class="admin-layout">
+      <section class="admin-panel">
+        <h2>Hostel Monitoring</h2>
+        <div class="hostel-table-wrapper">
+          <table class="hostel-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Owner</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminHostelTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-panel">
+        <h2>Student Reviews</h2>
+        <div id="adminReviewList" class="review-container">
+          <p>Loading reviews...</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="admin-layout" style="margin-top: 20px;">
+      <section class="admin-panel">
+        <h2>Notes</h2>
+        <p class="muted">Use this space to jot down quick admin notes or follow-ups while reviewing hostels and feedback.</p>
+        <textarea id="adminNotes" rows="5" placeholder="Type your notes here..."></textarea>
+      </section>
+
+      <section class="admin-panel">
+        <h2>Review Filter</h2>
+        <input type="text" id="adminReviewFilter" placeholder="Filter reviews by user, hostel id, or text" />
+        <p class="muted">Type to quickly narrow down the list in "Student Reviews".</p>
+      </section>
+    </div>
+  </main>
+
+  <script src="toast.js"></script>
+  <script>
+    const API_BASE = "http://127.0.0.1:5000";
+
+    function getLoggedUser(){
+      const u = localStorage.getItem("user");
+      return u ? JSON.parse(u) : null;
+    }
+
+    // ----------------- FETCH REVIEWS -----------------
+    async function fetchAdminReviews() {
+      const adminReviewList = document.getElementById("adminReviewList");
+      if (!adminReviewList) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/get_all_reviews`);
+        const reviews = await res.json();
+
+        adminReviewList.innerHTML = "";
+
+        if (!reviews.length) {
+          adminReviewList.innerHTML = "<p>No reviews submitted yet.</p>";
+          return;
+        }
+
+        const filterInput = document.getElementById("adminReviewFilter");
+        const filterText = (filterInput?.value || "").toLowerCase();
+
+        reviews.forEach(r => {
+          if (filterText) {
+            const haystack = `${r.user || ''} ${r.text || ''} ${r.hostel_id || ''}`.toLowerCase();
+            if (!haystack.includes(filterText)) {
+              return;
+            }
+          }
+          const statusLabel = r.status === "pending" ? "Pending" : (r.status === "approved" ? "Approved" : "Approved");
+          const div = document.createElement("div");
+          div.className = "review-card";
+          div.innerHTML = `
+            <p><strong>${r.user}</strong> rated <strong>${r.rating}</strong></p>
+            <p>${r.text}</p>
+            <p><em>Hostel ID: ${r.hostel_id}</em></p>
+            <p>Status: ${statusLabel}</p>
+            <div class="btn-group">
+              ${r.status === "pending" ? `<button type="button" onclick="approveReview('${r._id}')">Approve</button>` : `<button type="button" disabled>Approved</button>`}
+              <button type="button" class="btn-secondary" onclick="deleteReview('${r._id}')">Delete</button>
+            </div>
+          `;
+          adminReviewList.appendChild(div);
+        });
+
+
+      } catch (err) {
+        console.error("Error fetching admin reviews:", err);
+        adminReviewList.innerHTML = "<p>Failed to load reviews.</p>";
+      }
+    }
+
+    // ----------------- AUTO REFRESH -----------------
+    fetchAdminReviews();
+    setInterval(fetchAdminReviews, 5000);
+
+    // Keep review filter live
+    const reviewFilterInput = document.getElementById("adminReviewFilter");
+    reviewFilterInput?.addEventListener("input", () => {
+      fetchAdminReviews();
+    });
+
+    // ----------------- FETCH HOSTELS -----------------
+    async function fetchAdminHostels() {
+      const table = document.getElementById("adminHostelTable");
+      if (!table) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/get_all_hostels`);
+        const hostels = await res.json();
+
+        table.innerHTML = "";
+
+        if (!hostels.length) {
+          table.innerHTML = "<tr><td colspan='5'>No hostels found.</td></tr>";
+          return;
+        }
+
+        const sourceLabel = (src) => {
+          if (src === "generated_sample") return "Sample";
+          if (src === "real_operator") return "Real operator";
+          if (src === "owner_submitted") return "Owner submitted";
+          return "Legacy";
+        };
+
+        hostels.forEach(h => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${h.name}</td>
+            <td>${h.owner_name || h.owner_email || h.ownerId || '-'}</td>
+            <td>${sourceLabel(h.data_source)}</td>
+            <td>${h.verified ? "Verified" : "Pending"}</td>
+            <td>
+              <button onclick="verifyHostel('${h._id}')">Verify</button>
+              <button onclick="deleteHostel('${h._id}')">Delete</button>
+            </td>
+          `;
+          table.appendChild(tr);
+        });
+
+      } catch (err) {
+        console.error("Error fetching hostels:", err);
+        table.innerHTML = "<tr><td colspan='5'>Failed to load hostels.</td></tr>";
+      }
+    }
+
+    // ----------------- ADMIN STATS -----------------
+    async function fetchAdminStats() {
+      const totalHostelsEl = document.getElementById("totalHostels");
+      const totalStudentsEl = document.getElementById("totalStudents");
+      const pendingHostelsEl = document.getElementById("pendingHostels");
+      if (!totalHostelsEl || !totalStudentsEl || !pendingHostelsEl) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin_stats`);
+        const stats = await res.json();
+
+        if (stats && !stats.error) {
+          totalHostelsEl.textContent = stats.total_hostels ?? 0;
+          totalStudentsEl.textContent = stats.total_users ?? 0;
+          pendingHostelsEl.textContent = stats.pending_hostels ?? 0;
+        }
+      } catch (err) {
+        console.error("Error fetching admin stats:", err);
+      }
+    }
+
+    // ----------------- HOSTEL ACTIONS -----------------
+    async function verifyHostel(hostelId) {
+      try {
+        const res = await fetch(`${API_BASE}/verify_hostel/${hostelId}`, { method: "POST" });
+        const result = await res.json();
+        if (result.success) {
+          toastSuccess("Hostel verified!");
+          fetchAdminHostels();
+        } else {
+          toastError("Failed to verify hostel.");
+        }
+      } catch (err) {
+        console.error(err);
+        toastError("Server error verifying hostel.");
+      }
+    }
+
+    async function deleteHostel(hostelId) {
+      try {
+        const res = await fetch(`${API_BASE}/delete_hostel/${hostelId}`, { method: "DELETE" });
+        const result = await res.json();
+        if (result.success) {
+          toastSuccess("Hostel deleted!");
+          fetchAdminHostels();
+        } else {
+          toastError("Failed to delete hostel.");
+        }
+      } catch (err) {
+        console.error(err);
+        toastError("Server error deleting hostel.");
+      }
+    }
+
+    // ----------------- REVIEW ACTIONS -----------------
+    async function approveReview(reviewId) {
+      try {
+        const res = await fetch(`${API_BASE}/approve_review/${reviewId}`, { method: "POST" });
+        const result = await res.json();
+        if (result.success) {
+          fetchAdminReviews();
+          fetchAdminStats();
+        } else {
+          toastError("Failed to approve review.");
+        }
+      } catch (err) {
+        console.error(err);
+        toastError("Server error approving review.");
+      }
+    }
+
+    async function deleteReview(reviewId) {
+      try {
+        const res = await fetch(`${API_BASE}/delete_review/${reviewId}`, { method: "DELETE" });
+        const result = await res.json();
+        if (result.success) {
+          fetchAdminReviews();
+          fetchAdminStats();
+        } else {
+          toastError("Failed to delete review.");
+        }
+      } catch (err) {
+        console.error(err);
+        toastError("Server error deleting review.");
+      }
+    }
+
+    // ----------------- CLEAR SAMPLE DATA -----------------
+    document.getElementById("clearSampleBtn")?.addEventListener("click", async () => {
+      if (!confirm("Delete every sample/seed listing (not owner-submitted ones)? This can't be undone.")) return;
+      try {
+        const res = await fetch(`${API_BASE}/clear_sample_data`, { method: "POST" });
+        const result = await res.json();
+        if (result.success) {
+          toastSuccess(`Cleared ${result.deleted} sample listing${result.deleted === 1 ? "" : "s"}.`);
+          fetchAdminHostels();
+          fetchAdminStats();
+        } else {
+          toastError("Failed to clear sample data.");
+        }
+      } catch (err) {
+        console.error(err);
+        toastError("Server error clearing sample data.");
+      }
+    });
+
+    // ----------------- INITIAL LOAD -----------------
+    fetchAdminHostels();
+    fetchAdminReviews();
+    fetchAdminStats();
+
+    setInterval(fetchAdminHostels, 5000);
+    setInterval(fetchAdminReviews, 5000);
+    setInterval(fetchAdminStats, 10000);
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

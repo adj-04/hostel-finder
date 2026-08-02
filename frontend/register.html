@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register | Chennai Hostel Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="login-container">
+    <h2>Create your account</h2>
+    <form id="registerForm">
+      <input type="text" id="regName" placeholder="Full name" required autocomplete="name">
+      <input type="email" id="regEmail" placeholder="Email" required autocomplete="email">
+      <input type="password" id="regPassword" placeholder="Password (min 6 characters)" required autocomplete="new-password">
+      <select id="regRole">
+        <option value="student">Student</option>
+        <option value="owner">Owner</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button type="submit">Create account</button>
+    </form>
+    <p>Already have an account? <a href="login.html">Login here</a></p>
+  </div>
+  <script src="toast.js"></script>
+  <script>
+    const BASE_URL = "http://127.0.0.1:5000";
+    const form = document.getElementById("registerForm");
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.textContent;
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      submitBtn.textContent = loading ? 'Creating account…' : originalBtnText;
+      submitBtn.style.opacity = loading ? '0.7' : '1';
+    }
+
+    // Pre-select role from ?role=student|owner query param (landing page CTAs)
+    const params = new URLSearchParams(window.location.search);
+    const roleParam = params.get('role');
+    if (roleParam) {
+      const roleSelect = document.getElementById('regRole');
+      if ([...roleSelect.options].some(o => o.value === roleParam)) {
+        roleSelect.value = roleParam;
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      const name = document.getElementById("regName").value.trim();
+      const email = document.getElementById("regEmail").value.trim();
+      const password = document.getElementById("regPassword").value;
+      const role = document.getElementById("regRole").value;
+
+      if (name.length < 2) {
+        toastError("Name must be at least 2 characters long.");
+        setLoading(false);
+        return;
+      }
+      if (password.length < 6) {
+        toastError("Password must be at least 6 characters long.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${BASE_URL}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password, role })
+        });
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+        const data = await res.json();
+        if (data.success) {
+          toastSuccess("Account created! Redirecting to login…");
+          setTimeout(() => { window.location.href = "login.html"; }, 1500);
+        } else {
+          toastError(data.error || "Registration failed. Please try again.");
+        }
+      } catch (err) {
+        console.error('Registration error:', err);
+        toastError("Unable to connect to server. Is the backend running?");
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
